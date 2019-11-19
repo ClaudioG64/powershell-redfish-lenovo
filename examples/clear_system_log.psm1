@@ -41,7 +41,7 @@ function lenovo_clear_system_log
    .EXAMPLE
     lenovo_clear_system_log -ip 10.10.10.10 -username USERID -password PASSW0RD -config_file config.ini
    #>
-   
+
     param(
         [Parameter(Mandatory=$False)]
         [string] $ip = '',
@@ -52,20 +52,20 @@ function lenovo_clear_system_log
         [Parameter(Mandatory=$False)]
         [string] $config_file = 'config.ini'
         )
-        
+
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
     
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
@@ -73,7 +73,7 @@ function lenovo_clear_system_log
     try
     {
         $session_key = $session_location = ''
-        
+
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
@@ -88,22 +88,7 @@ function lenovo_clear_system_log
 
         $managers_url = $converted_object.Managers."@odata.id"
         $managers_url_string = "https://$ip" + $managers_url
-        $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
-
-        $manager_url_collection = @()
-
-        # Convert response content to hash table
-        $converted_object = $response.Content | ConvertFrom-Json
-        $hash_table = @{}
-        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
-
-        # Set the $manager_url_collection
-        foreach ($i in $hash_table.Members)
-        {
-            $i = [string]$i
-            $manager_url_string = ($i.Split("=")[1].Replace("}",""))
-            $manager_url_collection += $manager_url_string
-        }
+        $manager_url_collection = get_managers_url -uri $managers_url_string -Headers $JsonHeader
 
         # Loop all Manager resource instance in $manager_url_collection
         foreach ($manager_url_string in $manager_url_collection)
@@ -142,7 +127,7 @@ function lenovo_clear_system_log
                 }
 
                 # Build request body and send requests to clear the system log
-                $body = @{"Action"="LogService.ClearLog"}
+                $body = @{'Action'='LogService.ClearLog'}
                 $json_body = $body | convertto-json
                 try
                 {
@@ -164,7 +149,7 @@ function lenovo_clear_system_log
                             $response_j = $response_j | Select-Object -Expand '@Message.ExtendedInfo'
                             Write-Host "Error message:" $response_j.Resolution
                         }
-                    } 
+                    }
                     # Handle system exception response
                     elseif($_.Exception)
                     {
@@ -175,7 +160,7 @@ function lenovo_clear_system_log
                 }
                 Write-Host
                 [String]::Format("- PASS, statuscode {0} returned to successfully clear system log.",$response_clear_log.StatusCode)
-                return $True   
+                return $True
             }
         }  
     }
@@ -195,7 +180,7 @@ function lenovo_clear_system_log
                 $response_j = $response_j | Select-Object -Expand '@Message.ExtendedInfo'
                 Write-Host "Error message:" $response_j.Resolution
             }
-        } 
+        }
         # Handle system exception response
         elseif($_.Exception)
         {

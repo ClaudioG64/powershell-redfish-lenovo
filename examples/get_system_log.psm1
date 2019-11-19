@@ -43,36 +43,35 @@ function get_system_log
    
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
+
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
     
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
     
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -87,6 +86,9 @@ function get_system_log
         
         $managers_url = $converted_object.Managers."@odata.id"
         $managers_url_string = "https://$ip" + $managers_url
+        $manager_url_collection = get_managers_url -Uri $managers_url_string -Headers $JsonHeader
+
+<#
         $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing 
       
         # Convert response content to hash table
@@ -100,6 +102,7 @@ function get_system_log
             $manager_url_string = $i."@odata.id"
             $manager_url_collection += $manager_url_string
         }
+#>
 
         # Loop all Manager resource instance in $manager_url_collection
         foreach ($manager_url_string in $manager_url_collection)
@@ -112,7 +115,7 @@ function get_system_log
             
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             
             $temp = [string]$hash_table.LogServices
             $uri_address_LogServices = "https://$ip"+($temp.Split("=")[1].Replace("}",""))
@@ -122,7 +125,7 @@ function get_system_log
             
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             
             # Loop all log services in collections
             foreach ($i in $hash_table.Members)
@@ -134,7 +137,7 @@ function get_system_log
                 $sub_response = Invoke-WebRequest -Uri $uri_address_log_service -Headers $JsonHeader -Method Get -UseBasicParsing 
                 $converted_object = $sub_response.Content | ConvertFrom-Json
                 $hash_table = @{}
-                $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+                $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
                 $temp = [string]$hash_table.Entries
                 $uri_address_log_service_entries = "https://$ip"+($temp.Split("=")[1].Replace("}",""))
                 
@@ -144,7 +147,7 @@ function get_system_log
                 # Converting PS Custom Object to hashtable, print logs to the screen
                 $converted_object = $sub_response.Content | ConvertFrom-Json
                 $hash_table2 = @{}
-                $converted_object.psobject.properties | Foreach { $hash_table2[$_.Name] = $_.Value }
+                $converted_object.psobject.properties | ForEach-Object { $hash_table2[$_.Name] = $_.Value }
                 # Output result
                 $hash_table2.Members
             }

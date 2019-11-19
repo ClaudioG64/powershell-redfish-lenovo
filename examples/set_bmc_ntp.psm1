@@ -46,84 +46,69 @@ function set_bmc_ntp
     param
     (
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini",
-        [Parameter(Mandatory=$True, HelpMessage="Input the ntp server(array  Items: string,Item count: 4)")]
-        [array]$ntp_server,
-        [Parameter(Mandatory=$True, HelpMessage="Input the rotocolEnabled (0:false, 1:true)")]
-        [int]$enabled
+        [string] $config_file = 'config.ini',
+        [Parameter(Mandatory=$True, HelpMessage="Input the NTP server(array  Items: string,Item count: 4)")]
+        [array] $ntp_server,
+        [Parameter(Mandatory=$True, HelpMessage="Input the ProtocolEnabled (0:false, 1:true)")]
+        [int] $enabled
     )
-        
+
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
+
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    
+
     try
     {
-        $session_key = ""
-        $session_location = ""
-        
+        $session_key = $session_location = ''
+
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key}
-    
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
         # Get the manager url collection
         $manager_url_collection = @()
         $base_url = "https://$ip/redfish/v1/"
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
 
-        
         $managers_url = $converted_object.Managers."@odata.id"
         $managers_url_string = "https://$ip" + $managers_url
-        $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing 
-       
-        # Convert response content to hash table
-        $converted_object = $response.Content | ConvertFrom-Json
-        $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
-        
-        # Set the $manager_url_collection
-        foreach ($i in $hash_table.Members)
-        {
-            $i = [string]$i
-            $manager_url_string = ($i.Split("=")[1].Replace("}",""))
-            $manager_url_collection += $manager_url_string
-        }
+        $manager_url_collection = get_managers_url -uri $managers_url_string -Headers $JsonHeader
 
         # Loop all Manager resource instance in $manager_url_collection
         foreach ($manager_url_string in $manager_url_collection)
         {
-        
             # Get LogServices from the Manager resource instance
             $uri_address_manager = "https://$ip"+$manager_url_string
             $response = Invoke-WebRequest -Uri $uri_address_manager -Headers $JsonHeader -Method Get -UseBasicParsing
-            
+
             $converted_object = $response.Content | ConvertFrom-Json
             $uri_network ="https://$ip"+$converted_object.NetworkProtocol.'@odata.id'
             $parameter = @{"NTPServers"=$ntp_server; "ProtocolEnabled"=[bool]$enabled}
-            
+
             # Build request body and send requests to set bmc ntp
             $body = @{"NTP"=$parameter}
             $json_body = $body | convertto-json
@@ -132,7 +117,7 @@ function set_bmc_ntp
                 $response = Invoke-WebRequest -Uri $uri_network -Headers $JsonHeader -Method Patch  -Body $json_body -ContentType 'application/json'
             }
             catch
-            {   
+            {
                 # Handle http exception response for Post request
                 if ($_.Exception.Response)
                 {
@@ -173,7 +158,7 @@ function set_bmc_ntp
                 $response_j = $response_j | Select-Object -Expand '@Message.ExtendedInfo'
                 Write-Host "Error message:" $response_j.Resolution
             }
-        } 
+        }
         # Handle system exception response
         elseif($_.Exception)
         {
@@ -185,7 +170,7 @@ function set_bmc_ntp
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }

@@ -43,72 +43,55 @@ function get_virtual_media
     param
     (
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
     )
         
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
 
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
     
     try
     {
-        $session_key = ""
-        $session_location = ""
-        
+        $session_key = $session_location = ''
+
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
-        $JsonHeader = @{"X-Auth-Token" = $session_key}
+        $JsonHeader = @{'X-Auth-Token' = $session_key}
     
         # Get the manager url collection
-        $manager_url_collection = @()
         $base_url = "https://$ip/redfish/v1/"
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
 
-        
         $managers_url = $converted_object.Managers."@odata.id"
         $managers_url_string = "https://$ip" + $managers_url
-        $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing  
-    
-        # Convert response content to hash table
-        $converted_object = $response.Content | ConvertFrom-Json
-        $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
-        
-        # Set the $manager_url_collection
-        foreach ($i in $hash_table.Members)
-        {
-            $i = [string]$i
-            $manager_url_string = ($i.Split("=")[1].Replace("}",""))
-            $manager_url_collection += $manager_url_string
-        }
+        $manager_url_collection = get_managers_url -uri $managers_url_string -Headers $JsonHeader
 
         # Loop all Manager resource instance in $manager_url_collection
         foreach ($manager_url_string in $manager_url_collection)
         {
-        
             # Get servicedata uri from the Manager resource instance
             $uri_address_manager = "https://$ip" + $manager_url_string
 
@@ -121,7 +104,7 @@ function get_virtual_media
             $response = Invoke-WebRequest -Uri $uri_virtual_media -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
             $members_count = $hash_table."Members@odata.count"
             if($members_count -eq 0)
@@ -138,7 +121,7 @@ function get_virtual_media
                 $response = Invoke-WebRequest -Uri $virtual_media_x_url -Headers $JsonHeader -Method Get -UseBasicParsing
                 $converted_object = $response.Content | ConvertFrom-Json
                 $hash_table = @{}
-                $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+                $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
                 # Set the network protocol hash table
                 $virtual_media = @{}
@@ -183,7 +166,7 @@ function get_virtual_media
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }

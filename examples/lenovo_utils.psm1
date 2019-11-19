@@ -133,8 +133,7 @@ function delete_session
     $session_key = $session.'X-Auth-Token'
     $session_location = $session.Location
 
-    $JsonHeader = @{ 'X-Auth-Token' = $session_key
-    }
+    $JsonHeader = @{ 'X-Auth-Token' = $session_key}
 
     # Complete the url if it's not start with proper format
     if($session_location.startswith('http') -eq $False)
@@ -145,17 +144,53 @@ function delete_session
     $response = Invoke-WebRequest -Uri $session_location -Headers $JsonHeader -Method Delete -DisableKeepAlive
 }
 
+function get_managers_url {
+    <#
+    .Synopsis
+        Get Managers instance URLs
+    .DESCRIPTION
+        Get Managers instance URLs, a URL collection is returned.
+        - Uri: Pass the Managers URI address
+        - Headers: Pass in the headers with session info for authentication
+   #>
+   param(
+    [Parameter(Mandatory=$True)]
+    [ValidateNotNullOrEmpty()]
+    [string] $uri,
+    [Parameter(Mandatory=$True)]
+    [ValidateNotNullOrEmpty()]
+    [string] $Headers
+    )
+
+    $response = Invoke-WebRequest -Uri $uri -Headers $Headers -Method Get -UseBasicParsing
+
+    # Convert response content to hash table
+    $converted_object = $response.Content | ConvertFrom-Json
+    $hash_table = @{}
+    $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
+
+    # Set the $manager_url_collection
+    $manager_url_collection = @()
+    foreach ($i in $hash_table.Members) {
+        $i = [string]$i
+        $manager_url_string = ($i.Split("=")[1].Replace("}",""))
+        $manager_url_collection += $manager_url_string
+    }
+
+    return $manager_url_collection
+}
+
 function get_system_urls
 {
-   <#
-   .Synopsis
-    Get ComputerSystem instance URLs
-   .DESCRIPTION
-    Get ComputerSystem instance URLs, a URL collection is returned.
-    - bmcip: Pass in BMC IP address
-    - session: Pass in session info for authentication
-    - system_id: Pass in ComputerSystem instance id(None: first instance, All: all instances)
-   #>
+    <#
+    .Synopsis
+        Get ComputerSystem instance URLs
+    .DESCRIPTION
+        Get ComputerSystem instance URLs, a URL collection is returned.
+        - bmcip: Pass in BMC IP address
+        - session: Pass in session info for authentication
+        - system_id: Pass in ComputerSystem instance id(None: first instance, All: all instances)
+    #>
 
     param(
         [Parameter(Mandatory=$True)]
@@ -167,15 +202,15 @@ function get_system_urls
         [Parameter(Mandatory=$False)]
         [string] $system_id = "None"
         )
-    
+
     # Create an null array for result return
     $system_url_collection = @()
-    
+
     # Get the system url collection via Invoke-WebRequest
     $base_url = "https://$bmcip/redfish/v1/"
     $session_key = $session.'X-Auth-Token'
-    $JsonHeader = @{ 'X-Auth-Token' = $session_key
-    }
+    $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
     $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
     $converted_object = $response.Content | ConvertFrom-Json
     $systems_url = $converted_object.Systems."@odata.id"
@@ -187,13 +222,13 @@ function get_system_urls
     $converted_object = $response.Content | ConvertFrom-Json
     $hash_table = @{}
     $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
-    
+
     # Set the $system_url_collection by checking $system_id value
     foreach ($i in $hash_table.Members)
     {
         $i = [string]$i
         $system_url_string = ($i.Split("=")[1].Replace("}",""))
-        
+
         if ($system_id -eq "None")
         {
             $system_url_collection += $system_url_string
