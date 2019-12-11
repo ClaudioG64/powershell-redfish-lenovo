@@ -40,46 +40,44 @@ function get_fan_inventory
    .EXAMPLE
     get_fan_inventory -ip 10.10.10.10 -username USERID -password PASSW0RD 
    #>
-   
+
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
 
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
-    
+
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     { 
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -87,40 +85,39 @@ function get_fan_inventory
         $session_location = $session.Location
 
         # Build headers with session key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
         # Get the chassis url
         $base_url = "https://$ip/redfish/v1/"
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
         $chassis_url = $converted_object.Chassis."@odata.id"
 
-        #Get chassis list 
+        #Get chassis list
         $chassis_url_collection = @()
         $chassis_url_string = "https://$ip"+ $chassis_url
         $response = Invoke-WebRequest -Uri $chassis_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
         foreach($i in $converted_object.Members)
         {
-               $tmp_chassis_url_string = "https://$ip" + $i."@odata.id"
-               $chassis_url_collection += $tmp_chassis_url_string
+            $tmp_chassis_url_string = "https://$ip" + $i."@odata.id"
+            $chassis_url_collection += $tmp_chassis_url_string
         }
-        
+
         # Loop all chassis resource instance in $chassis_url_collection
         foreach($chassis_url_string in $chassis_url_collection)
         {
             #get chassis resource
             $response = Invoke-WebRequest -Uri $chassis_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             $links_info = $converted_object.Links
             $ht_links = @{}
             $links_info.psobject.properties | Foreach { $ht_links[$_.Name] = $_.Value }
             if($ht_links.Keys -notcontains "ComputerSystems")
             {
                 continue
-            }  
+            }
 
             #Get thermal_url resource
             $thermal_url = "https://$ip" + $converted_object.Thermal."@odata.id"
@@ -145,9 +142,7 @@ function get_fan_inventory
                 # Output result
                 ConvertOutputHashTableToObject $ht_fans_info
             }
-            
         }
-        
     }
     catch
     {
@@ -182,10 +177,9 @@ function get_fan_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }
     }
-    
 }
