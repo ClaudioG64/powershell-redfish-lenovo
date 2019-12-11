@@ -88,22 +88,6 @@ function get_system_log
         $managers_url_string = "https://$ip" + $managers_url
         $manager_url_collection = get_managers_url -Uri $managers_url_string -Headers $JsonHeader
 
-<#
-        $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing 
-      
-        # Convert response content to hash table
-        $converted_object = $response.Content | ConvertFrom-Json
-        $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
-        
-        # Set the $manager_url_collection
-        foreach ($i in $hash_table.Members)
-        {
-            $manager_url_string = $i."@odata.id"
-            $manager_url_collection += $manager_url_string
-        }
-#>
-
         # Loop all Manager resource instance in $manager_url_collection
         foreach ($manager_url_string in $manager_url_collection)
         {

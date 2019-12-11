@@ -42,42 +42,41 @@ function lenovo_bmc_config_backup
    .EXAMPLE
     lenovo_bmc_config_backup -ip 10.10.10.10 -username USERID -password PASSW0RD -backupfile ./bmc_config_backup.json -backuppasswd 123456789
    #>
-   
+
     param(
         [Parameter(Mandatory=$False)]
         [string]$backupfile="./bmc_config_backup.json",
         [Parameter(Mandatory=$True)]
         [string]$backuppasswd,
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
 
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
     
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
-    { 
+    if ($ip -eq '')
+    {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
@@ -89,8 +88,7 @@ function lenovo_bmc_config_backup
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -98,26 +96,18 @@ function lenovo_bmc_config_backup
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
         # Get the manager url
         $base_url = "https://$ip/redfish/v1/"
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
         $managers_url = $converted_object.Managers."@odata.id"
 
-        #Get manager list 
-        $manager_url_collection = @()
+        #Get manager list
         $managers_url_string = "https://$ip"+ $managers_url
-        $response = Invoke-WebRequest -Uri $managers_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
-        $converted_object = $response.Content | ConvertFrom-Json
-        foreach($i in $converted_object.Members)
-        {
-               $tmp_manager_url_string = "https://$ip" + $i."@odata.id"
-               $manager_url_collection += $tmp_manager_url_string
-        }
-        
+        $manager_url_collection = get_managers_url -uri $managers_url_string -Headers $JsonHeader
+
         # Loop all manager resource instance in $manager_url_collection
         foreach($manager_url_string in $manager_url_collection)
         {
@@ -128,7 +118,7 @@ function lenovo_bmc_config_backup
             #Get config url
             $oem_info = $converted_object.Oem.Lenovo
             $config_url = "https://$ip" + $oem_info.Configuration."@odata.id"
-            
+
             #Get backup action url
             $response = Invoke-WebRequest -Uri $config_url -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
@@ -192,7 +182,6 @@ function lenovo_bmc_config_backup
             delete_session -ip $ip -session $session
         }
     }
-    
 }
 
 #get file size
