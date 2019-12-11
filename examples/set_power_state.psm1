@@ -46,50 +46,44 @@ function set_power_state
    
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$True, HelpMessage='Input the set power status("On, ForceOff, GracefulRestart, GracefulShutdown")')]
-        [string]$reset_type="",
+        [ValidateSet('On', 'ForceOff', 'GracefulRestart', 'GracefulShutdown')]
+        [string] $reset_type,
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
 
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
-    
+
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($reset_type -eq "")
-    {
-        Write-Host "Please input power reset type."
-        return $False
-    }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
-    
+
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -97,51 +91,42 @@ function set_power_state
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
-        # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key }
 
+        # Get the system url collection
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
         {
-            
             # Get Powerstate from the System resource instance
             $uri_address_system = "https://$ip"+$system_url_string
-            
+
             $response = Invoke-WebRequest -Uri $uri_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
-            
+
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
-            
             # If server power is on, block Power on requests
-            if($hash_table.PowerState -eq "On")
+            if($hash_table.PowerState -eq "On" -and $reset_type -eq "On")
             {
-                if($reset_type -eq "On")
-                {
-                    Write-Host "The Server Power is On, Invalid Power option."
-                    return $False
-                }
+                Write-Host "The Server Power is On, Invalid Power option."
+                return $False
             }
 
             # If server power is off, block Power off and restart requests
             if($hash_table.PowerState -eq "Off")
             {
-                if(($reset_type -eq "ForceOff") -or ($reset_type -eq "GracefulRestart") -or ($reset_type -eq "GracefulShutdown"))
+                if(($reset_type -in "ForceOff","GracefulRestart","GracefulShutdown"))
                 {
                     Write-Host "The Server Power is Off , Invalid Power option."
                     return $False
                 }
             }
 
-            $JsonBody = @{"ResetType" = $reset_type
-                } | ConvertTo-Json -Compress
-            
+            $JsonBody = @{"ResetType" = $reset_type } | ConvertTo-Json -Compress
+
             $temp = $hash_table."Actions"."#ComputerSystem.Reset"."target"
             $uri_set_power_state = "https://$ip"+$temp
 
@@ -209,7 +194,7 @@ function set_power_state
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }

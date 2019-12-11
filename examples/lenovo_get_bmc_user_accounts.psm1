@@ -39,47 +39,45 @@ function lenovo_get_bmc_user_accounts
    .EXAMPLE
     lenovo_get_bmc_user_accounts -ip 10.10.10.10 -username USERID -password PASSW0RD
    #>
-   
+
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
+
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
 
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
 
-
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         $base_url = "https://$ip/redfish/v1/"
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
-        $JsonHeader = @{"X-Auth-Token" = $session_key}
+        $JsonHeader = @{'X-Auth-Token' = $session_key}
 
         # Get the account server url via Invoke-WebRequest
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
@@ -87,7 +85,7 @@ function lenovo_get_bmc_user_accounts
         # Convert response content to hash table
         $converted_object = $response.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
         $account_server_url_string = "https://$ip"+$hash_table.AccountService.'@odata.id'
 
         # Get the accounts url via Invoke-WebRequest
@@ -96,7 +94,7 @@ function lenovo_get_bmc_user_accounts
         # Convert response_account_server content to hash table
         $converted_object = $response_account_server.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
         $accounts_url_string = "https://$ip"+$hash_table.Accounts.'@odata.id'
 
         # Get the account url via Invoke-WebRequest
@@ -105,20 +103,20 @@ function lenovo_get_bmc_user_accounts
         # Convert response_accounts_url content to hash table
         $converted_object = $response_accounts_url.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
         
         # Create an null array for result return
         $bmc_user_collection = @()
         foreach ($i in $hash_table.Members)
         {
             $account_url = "https://$ip" + $i.'@odata.id'
-            
+
             # Get account information if account is valid (UserName not blank)
             $response_account_x_url = Invoke-WebRequest -Uri $account_url -Headers $JsonHeader -Method Get -UseBasicParsing
             # Convert response_account_x_url content to hash table
             $converted_object = $response_account_x_url.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             $bmc_user = @{}
             if ($converted_object.UserName -ne '')
             {
@@ -136,7 +134,7 @@ function lenovo_get_bmc_user_accounts
                     $bmc_user['OemPrivileges'] = $converted_object.OemPrivileges
                 }
                 # Output result
-                ConvertOutputHashTableToObject $bmc_user      
+                ConvertOutputHashTableToObject $bmc_user
             }
         }
     }
@@ -168,10 +166,9 @@ function lenovo_get_bmc_user_accounts
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }
     }
 }
-    

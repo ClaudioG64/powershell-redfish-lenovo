@@ -43,80 +43,79 @@ function get_fw_inventory
    
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
+
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
 
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
     try
     {
-        $session_key = ""
-        $session_location = ""
-        
+        $session_key = $session_location = ''
+
         $base_url = "https://$ip/redfish/v1/"
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
-        $JsonHeader = @{ "X-Auth-Token" = $session_key}
-    
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
         # Get the update server url via Invoke-WebRequest
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
-        
+
         # Convert response content to hash table
         $converted_object = $response.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
         $update_service_url_string = "https://$ip" + $hash_table.UpdateService.'@odata.id'
 
         # Get the firmware inventory url via Invoke-WebRequest
         $response_update_service = Invoke-WebRequest -Uri $update_service_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
-       
+
         # Convert $response_update_service content to hash table
         $converted_object = $response_update_service.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
         $firmware_inventory_url_string = "https://$ip"+$hash_table.FirmwareInventory.'@odata.id'
 
         # Get the firmware_x_url via Invoke-WebRequest
         $response_firmware_inventory_url = Invoke-WebRequest -Uri $firmware_inventory_url_string -Headers $JsonHeader -Method Get -UseBasicParsing
-       
+
         # Convert $response_firmware_inventory_url content to hash table
         $converted_object = $response_firmware_inventory_url.Content | ConvertFrom-Json
         $hash_table = @{}
-        $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+        $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
         foreach ($i in $hash_table.Members)
         {
             $firmware_x_url = "https://$ip" + $i.'@odata.id'
-            
+
             # Get account information if account is valid (UserName not blank)
             $response_firmware_x_url = Invoke-WebRequest -Uri $firmware_x_url -Headers $JsonHeader -Method Get -UseBasicParsing
             # Convert response_firmware_x_url content to hash table
             $converted_object = $response_firmware_x_url.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             # Create an null hash table for firmware inventory return
             $fw = @{}
             $fw["Name"] = $hash_table.Name
@@ -133,7 +132,6 @@ function get_fw_inventory
             # Output result
             ConvertOutputHashTableToObject $fw
         }
-
     }
     catch
     {
@@ -163,7 +161,7 @@ function get_fw_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }

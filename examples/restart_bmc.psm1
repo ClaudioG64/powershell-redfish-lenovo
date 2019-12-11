@@ -109,7 +109,7 @@ function restart_bmc
 
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
             # set PowerAction for the Manager resource instance
             $temp = $hash_table."Actions"."#Manager.Reset"."target"
@@ -119,7 +119,7 @@ function restart_bmc
             {
                 $JsonBody = @{ 'ResetType' = 'GracefulRestart'} | ConvertTo-Json -Compress
             }
-            else 
+            else
             {
                 $JsonBody = @{
                     "Action" = "Manager.Reset"
@@ -160,7 +160,7 @@ function restart_bmc
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }
