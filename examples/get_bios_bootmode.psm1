@@ -42,43 +42,41 @@ function get_bios_bootmode
    
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
 
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
-    
+
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     { 
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -86,12 +84,10 @@ function get_bios_bootmode
         $session_location = $session.Location
 
         # Build headers with session key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ 'X-Auth-Token' = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -129,7 +125,6 @@ function get_bios_bootmode
             $boot_mode_dict["BootMode"] = $hash_table.Attributes.$attribute_name
             ConvertOutputHashTableToObject $boot_mode_dict
         }
-        
     }
     catch
     {
@@ -164,10 +159,9 @@ function get_bios_bootmode
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
+        if (-not [string]::IsNullOrWhiteSpace($session_key))
         {
             delete_session -ip $ip -session $session
         }
     }
-    
 }
