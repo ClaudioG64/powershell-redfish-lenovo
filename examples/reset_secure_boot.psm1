@@ -82,8 +82,7 @@ function reset_secure_boot
     
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -91,12 +90,10 @@ function reset_secure_boot
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -161,9 +158,6 @@ function reset_secure_boot
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

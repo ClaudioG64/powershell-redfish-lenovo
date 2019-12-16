@@ -79,8 +79,7 @@ function set_bios_bootmode_legacy
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -91,8 +90,7 @@ function set_bios_bootmode_legacy
         $JsonHeader = @{ "X-Auth-Token" = $session_key}
 
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
@@ -110,7 +108,7 @@ function set_bios_bootmode_legacy
             # Get boot mode from bios attributes
             $converted_object = $response_bios_url.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             if($hash_table.Attributes."BootMode")
             {
                 $attribute_name = "BootMode"
@@ -227,9 +225,6 @@ function set_bios_bootmode_legacy
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

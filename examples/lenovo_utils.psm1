@@ -126,9 +126,13 @@ function delete_session
         [ValidateNotNullOrEmpty()]
         $ip,
         [Parameter(Mandatory=$True)]
-        [ValidateNotNullOrEmpty()]
         $session
         )
+
+    # Nothong to do - exit
+    if ([string]::IsNullOrWhiteSpace($session)) {
+        return
+    }
 
     $session_key = $session.'X-Auth-Token'
     $session_location = $session.Location
@@ -140,8 +144,39 @@ function delete_session
     {
         $session_location = "https://$ip" + $session_location
     }
+    Invoke-WebRequest -Uri $session_location -Headers $JsonHeader -Method Delete -DisableKeepAlive | Out-Null
+}
 
-    $response = Invoke-WebRequest -Uri $session_location -Headers $JsonHeader -Method Delete -DisableKeepAlive
+function get_chassis_url {
+    <#
+    .Synopsis
+        Get Chassis instance URLs
+    .DESCRIPTION
+        Get Chassis instance URLs, a URL collection is returned.
+        - Uri: Pass the Managers URI address
+        - Headers: Pass in the headers with session info for authentication
+   #>
+   param(
+    [Parameter(Mandatory=$True)]
+    [ValidateNotNullOrEmpty()]
+    [string] $uri,
+    [Parameter(Mandatory=$True)]
+    [ValidateNotNullOrEmpty()]
+    [string] $Headers
+    )
+
+    $response = Invoke-WebRequest -Uri $uri -Headers $Headers -Method Get -UseBasicParsing
+
+    # Builds the chassis list
+    $chassis_url_collection = @()
+    $converted_object = $response.Content | ConvertFrom-Json
+    foreach($i in $converted_object.Members)
+    {
+        $tmp_chassis_url_string = "https://$ip" + $i."@odata.id"
+        Write-Verbose $tmp_chassis_url_string
+        $chassis_url_collection += $tmp_chassis_url_string
+    }
+    return $chassis_url_collection
 }
 
 function get_managers_url {
@@ -172,7 +207,7 @@ function get_managers_url {
     # Set the $manager_url_collection
     $manager_url_collection = @()
     foreach ($i in $hash_table.Members) {
-        $i = [string]$i
+        $i = [string] $i
         $manager_url_string = ($i.Split("=")[1].Replace("}",""))
         $manager_url_collection += $manager_url_string
     }
@@ -200,7 +235,7 @@ function get_system_urls
         [ValidateNotNullOrEmpty()]
         $session,
         [Parameter(Mandatory=$False)]
-        [string] $system_id = "None"
+        [string] $system_id = 'None'
         )
 
     # Create an null array for result return
@@ -226,15 +261,15 @@ function get_system_urls
     # Set the $system_url_collection by checking $system_id value
     foreach ($i in $hash_table.Members)
     {
-        $i = [string]$i
+        $i = [string] $i
         $system_url_string = ($i.Split("=")[1].Replace("}",""))
 
-        if ($system_id -eq "None")
+        if ($system_id -eq 'None')
         {
             $system_url_collection += $system_url_string
             break
         }
-        elseif ($system_id -eq "all")
+        elseif ($system_id -eq 'all')
         {
             $system_url_collection += $system_url_string
             continue
@@ -259,28 +294,34 @@ function get_system_urls
 
 function read_config
 {
-   <#
-   .Synopsis
+  <#
+    .Synopsis
     Read configuration file infomation
    .DESCRIPTION
     Read configuration file infomation
     - config_file: Pass in configuration file path
-   #>
-   
-    param(
-        [Parameter(Mandatory=$False)]
-        [string] $config_file = 'config.ini'
-        )
-    
+  #>
+
+  param(
+    [Parameter(Mandatory=$False)]
+    [string] $config_file = 'config.ini'
+    )
+
+    write-Verbose -Message "Parsing $Config_file"
     $hash_table = @{'BmcIp'=''; 'BmcUsername'=''; 'BmcUserpassword'=''; 'SystemId'=''; 'ManagerId'=''; 'ChassisId'=''}
-    if (-not [system.IO.File]::Exists($config_file))
+#    if (-not [system.IO.File]::Exists($config_file))
+    if (-Not (Test-Path -path $config_file -PathType Leaf))
     {
         $config_file = $PSScriptRoot + '\config.ini'
-        if (-not [system.IO.File]::Exists($config_file))
+        write-Verbose -Message "Parsing $Config_file"
+#        if (-not [system.IO.File]::Exists($config_file))
+        if (-Not (Test-Path -path $config_file -PathType Leaf))
         {
             return $hash_table
         }
     }
+
+    write-Verbose -Message "Reading $Config_file"
     Get-Content -Path $config_file |
         Where-object {$_ -like '*=*'} |
             ForEach-Object {
@@ -295,18 +336,18 @@ function read_config
 
 function ConvertOutputHashTableToObject
 {
-   <#
+  <#
    .Synopsis
     Convert output HashTable to Object
    .DESCRIPTION
     Convert output HashTable to Object
     - outputhash: HashTable format output
-   #>
+  #>
 
-    param(
-        [Parameter(Mandatory=$False)]
-        [hashtable]$outputhash
-        )
+  param(
+    [Parameter(Mandatory=$False)]
+    [hashtable]$outputhash
+  )
 
     $object = New-Object Object
 

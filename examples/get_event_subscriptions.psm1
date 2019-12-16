@@ -147,9 +147,6 @@ function get_event_subscriptions
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

@@ -78,8 +78,7 @@ function get_memory_inventory
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -87,12 +86,10 @@ function get_memory_inventory
         $session_location = $session.Location
 
         # Build headers with session key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -101,12 +98,12 @@ function get_memory_inventory
             $url_address_system = "https://$ip" + $system_url_string
             $response = Invoke-WebRequest -Uri $url_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             #Get memory resource
             $url_memory = "https://$ip" + $converted_object.Memory."@odata.id"
             $response = Invoke-WebRequest -Uri $url_memory -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             #Get memory info
             $list_memory = $converted_object.Members
             foreach($memory_info in $list_memory)
@@ -115,18 +112,17 @@ function get_memory_inventory
                 $url_sub_memory = "https://$ip" + $memory_info."@odata.id"
                 $response = Invoke-WebRequest -Uri $url_sub_memory -Headers $JsonHeader -Method Get -UseBasicParsing
                 $converted_object = $response.Content | ConvertFrom-Json
-                
+
                 $hash_table = @{}
                 $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
                 foreach($key in $hash_table.Keys)
                 {
-                    if($key -eq "Links" -or  $key -eq "Oem" -or $key -like "@*")
+                    if($key -notin "Links","Oem" -or $key -notlike "@*")
                     {
-                        continue
+                        $ht_memory_info[$key] = $hash_table[$key]
                     }
-                    $ht_memory_info[$key] = $hash_table[$key]
                 }
-                
+
                 # Output result
                 ConvertOutputHashTableToObject $ht_memory_info
             }
@@ -165,9 +161,6 @@ function get_memory_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

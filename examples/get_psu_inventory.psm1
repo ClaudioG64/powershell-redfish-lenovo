@@ -78,8 +78,7 @@ function get_psu_inventory
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -87,12 +86,10 @@ function get_psu_inventory
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -101,7 +98,7 @@ function get_psu_inventory
             $url_address_system = "https://$ip"+$system_url_string
             $response = Invoke-WebRequest -Uri $url_address_system -Headers $JsonHeader -Method Get -UseBasicParsing    
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             # Get chassis resource 
             $chassis_url = "https://$ip" + $converted_object.Links.Chassis."@odata.id"  
             $chassis_response =   Invoke-WebRequest -Uri $chassis_url -Headers $JsonHeader -Method Get -UseBasicParsing
@@ -128,7 +125,7 @@ function get_psu_inventory
                 $ht_power_supply["State"] = $power_supply.Status.State
                 $ht_power_supply["Health"] = $power_supply.Status.Health
                 $ht_power_supply["Manufacturer"] = $power_supply.Manufacturer
-                
+
                 # Output result
                 ConvertOutputHashTableToObject $ht_power_supply
             }
@@ -167,9 +164,6 @@ function get_psu_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

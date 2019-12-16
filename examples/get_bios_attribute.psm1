@@ -81,36 +81,30 @@ function get_bios_attribute
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
-    
+
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
+
         # Create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
 
-      
-       
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
-        
         # Loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
         {
-            
             # Get Bios from the System resource instance
             $uri_address_system = "https://$ip"+$system_url_string
-            
+
             $response = Invoke-WebRequest -Uri $uri_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
-            
+
             $converted_object = $response.Content | ConvertFrom-Json
             $Bios_url = $converted_object.Bios."@odata.id"
             $uri_address_Bios = "https://$ip" + $Bios_url
@@ -120,7 +114,7 @@ function get_bios_attribute
 
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
             if($hash_table.Attributes.$attribute_name)
             {
@@ -133,7 +127,6 @@ function get_bios_attribute
                 $ret = $False
                 return $ret
             }
-
         }
     }
     catch
@@ -164,9 +157,6 @@ function get_bios_attribute
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

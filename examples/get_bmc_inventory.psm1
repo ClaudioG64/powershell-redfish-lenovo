@@ -78,8 +78,7 @@ function get_bmc_inventory
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -87,12 +86,10 @@ function get_bmc_inventory
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -104,7 +101,7 @@ function get_bmc_inventory
             $url_address_system = "https://$ip"+$system_url_string
             $response = Invoke-WebRequest -Uri $url_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             # Get manager resource
             $manager_url = "https://$ip" + $converted_object.Links.ManagedBy."@odata.id"
             $manager_response =   Invoke-WebRequest -Uri $manager_url -Headers $JsonHeader -Method Get -UseBasicParsing
@@ -113,7 +110,7 @@ function get_bmc_inventory
             # Get url string
             $network_protocol_url  ="https://$ip" + $manager_converted_object.NetworkProtocol."@odata.id"
             $serial_url = "https://$ip" + $manager_converted_object.SerialInterfaces."@odata.id"
-            
+
             # Get info from manager resource instance
             $ht_bmc_info["FirmwareVersion"] = $manager_converted_object.FirmwareVersion
             $ht_bmc_info["Model"] = $manager_converted_object.Model
@@ -132,13 +129,13 @@ function get_bmc_inventory
             $ht_bmc_info["IPMI"] = $network_converted_object.IPMI.Port
             $ht_bmc_info["SSDP"] = $network_converted_object.SSDP.Port
             $ht_bmc_info["VirtualMedia"] = $network_converted_object.VirtualMedia.Port
-            
+
             # Get info from serial resource instance
             $serial_response = Invoke-WebRequest -Uri $serial_url -Headers $JsonHeader -Method Get -UseBasicParsing
             $serial_converted_object = $serial_response.Content | ConvertFrom-Json
             $serial_count = $serial_converted_object."Members@odata.count"
             $list_serial = @()
-            
+
             # Loop all sub_serial resource instance in serial resource
             for($num =0;$num -lt $serial_count;$num++)
             {
@@ -160,7 +157,6 @@ function get_bmc_inventory
             $ht_bmc_info["serial_info"] = $list_serial
             ConvertOutputHashTableToObject $ht_bmc_info
         }
-        
     }
     catch
     {
@@ -195,10 +191,6 @@ function get_bmc_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
-    
 }

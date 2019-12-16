@@ -46,60 +46,56 @@ function set_bios_password{
    
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$bios_password_name="",
+        [string] $bios_password_name = '',
         [Parameter(Mandatory=$False)]
-        [string]$bios_password="",
+        [string] $bios_password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
         )
-        
 
     # get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
-    
+
     # if the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
+    if ($ip -eq '')
     {
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
         $system_id = [string]($ht_config_ini_info['SystemId'])
     }
-    
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
+
         # create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
         #build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
         
         # get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
@@ -112,17 +108,16 @@ function set_bios_password{
             
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
-            
-            $temp = [string]$hash_table.BIOS
+            $temp = [string] $hash_table.BIOS
             $uri_address_bios = "https://$ip"+($temp.Split("=")[1].Replace("}",""))
 
             $response = Invoke-WebRequest -Uri $uri_address_Bios -Headers $JsonHeader -Method Get -UseBasicParsing
 
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
             # Reset Bios default value for the System resource instance
             $temp = $hash_table."Actions"."#Bios.ChangePassword"."target"
@@ -132,7 +127,7 @@ function set_bios_password{
                 "PasswordName" = $bios_password_name
                 "NewPassword" = $bios_password
                 } | ConvertTo-Json -Compress
-            
+
             $response = Invoke-WebRequest -Uri $uri_set_bios_password -Headers $JsonHeader -Method Post -Body $JsonBody -ContentType 'application/json'            
 
             Write-Host
@@ -169,9 +164,6 @@ function set_bios_password{
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

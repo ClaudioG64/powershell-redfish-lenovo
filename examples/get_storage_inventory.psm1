@@ -77,8 +77,7 @@ function get_storage_inventory
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -86,12 +85,10 @@ function get_storage_inventory
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -104,7 +101,7 @@ function get_storage_inventory
             $response = Invoke-WebRequest -Uri $url_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | Foreach-Object { $hash_table[$_.Name] = $_.Value }
 
             # Get the storage url from the computer system resource
             if($hash_table.keys -contains "Storage")
@@ -126,19 +123,19 @@ function get_storage_inventory
                 $response = Invoke-WebRequest -Uri $storage_x_url -Headers $JsonHeader -Method Get -UseBasicParsing
                 $converted_object = $response.Content | ConvertFrom-Json
                 $hash_table = @{}
-                $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
-            
+                $converted_object.psobject.properties | Foreach-Object { $hash_table[$_.Name] = $_.Value }
+
                 # Build a empty hashtable store storage information
                 $storage_info = @{}
                 $storage_info["Storage_id"] = $hash_table.Id
                 $storage_info["Name"] = $hash_table.Name
                 $storage_list = @()
-                
+
                 # Get the storage controllers instances resources from each of the storage resources
                 foreach($controller in $hash_table.StorageControllers)
                 {
                     $hash_table1 = @{}
-                    $controller.psobject.properties | Foreach { $hash_table1[$_.Name] = $_.Value }
+                    $controller.psobject.properties | Foreach-Object { $hash_table1[$_.Name] = $_.Value }
                     foreach($key in $hash_table1.Keys)
                         {
                             $storage_controller = @{}
@@ -157,13 +154,13 @@ function get_storage_inventory
                     foreach($disk in $hash_table.Drives)
                     {
                         $hash_table2 = @{}
-                        $controller.psobject.properties | Foreach { $hash_table2[$_.Name] = $_.Value }
+                        $controller.psobject.properties | Foreach-Object { $hash_table2[$_.Name] = $_.Value }
                         $disk_inventory = @{}
                         $disk_url = "https://$ip" + $hash_table2.'@odata.id'
                         $response = Invoke-WebRequest -Uri $disk_url -Headers $JsonHeader -Method Get -UseBasicParsing
                         $converted_object = $response.Content | ConvertFrom-Json
                         $hash_table3 = @{}
-                        $converted_object.psobject.properties | Foreach { $hash_table3[$_.Name] = $_.Value }
+                        $converted_object.psobject.properties | Foreach-Object { $hash_table3[$_.Name] = $_.Value }
                         foreach($key in $hash_table3.Keys)
                         {
                             if('Description','@odata.context','@odata.id','@odata.type','@odata.etag', 'Links' -notcontains $key)
@@ -180,9 +177,7 @@ function get_storage_inventory
                 # Output result
                 ConvertOutputHashTableToObject $storage_info
             }
-            
         }
-        
     }
     catch
     {
@@ -217,10 +212,6 @@ function get_storage_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
-    
 }

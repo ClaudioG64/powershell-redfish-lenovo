@@ -44,15 +44,15 @@ function set_bios_bootmode_uefi
    #>
     param(
         [Parameter(Mandatory=$False)]
-        [string]$ip="",
+        [string] $ip = '',
         [Parameter(Mandatory=$False)]
-        [string]$username="",
+        [string] $username = '',
         [Parameter(Mandatory=$False)]
-        [string]$password="",
+        [string] $password = '',
         [Parameter(Mandatory=$False)]
-        [string]$system_id="None",
+        [string] $system_id = 'None',
         [Parameter(Mandatory=$False)]
-        [string]$config_file="config.ini"
+        [string] $config_file = 'config.ini'
     )
 
 
@@ -60,27 +60,26 @@ function set_bios_bootmode_uefi
     $ht_config_ini_info = read_config -config_file $config_file
 
     # If the parameter is not specified via command line, use the setting from configuration file
-    if ($ip -eq "")
-    {
+    if ($ip -eq '')
+    { 
         $ip = [string]($ht_config_ini_info['BmcIp'])
     }
-    if ($username -eq "")
+    if ($username -eq '')
     {
         $username = [string]($ht_config_ini_info['BmcUsername'])
     }
-    if ($password -eq "")
+    if ($password -eq '')
     {
         $password = [string]($ht_config_ini_info['BmcUserpassword'])
     }
-    if ($system_id -eq "")
+    if ($system_id -eq '')
     {
-        $system_id = [string]($ht_config_ini_info['ManagerId'])
+        $system_id = [string]($ht_config_ini_info['SystemId'])
     }
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -91,8 +90,7 @@ function set_bios_bootmode_uefi
         $JsonHeader = @{ "X-Auth-Token" = $session_key}
 
         # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
@@ -110,7 +108,7 @@ function set_bios_bootmode_uefi
             # Get boot mode from bios attributes
             $converted_object = $response_bios_url.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
             if($hash_table.Attributes."BootMode")
             {
                 $attribute_name = "BootMode"
@@ -227,9 +225,6 @@ function set_bios_bootmode_uefi
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

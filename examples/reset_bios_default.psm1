@@ -80,38 +80,32 @@ function reset_bios_default{
 
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
+
         # create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
 
         #build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
+
         # get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
         {
-            
             # get Bios from the System resource instance
             $uri_address_system = "https://$ip"+$system_url_string
-            
             $response = Invoke-WebRequest -Uri $uri_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
-            
+
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
             $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
 
-            
             $temp = [string]$hash_table.BIOS
             $uri_address_bios = "https://$ip"+($temp.Split("=")[1].Replace("}",""))
-
             $response = Invoke-WebRequest -Uri $uri_address_Bios -Headers $JsonHeader -Method Get -UseBasicParsing
 
             $converted_object = $response.Content | ConvertFrom-Json
@@ -121,7 +115,6 @@ function reset_bios_default{
             # Reset Bios default value for the System resource instance
             $temp = $hash_table."Actions"."#Bios.ResetBios"."target"
             $uri_reset_bios_default = "https://$ip"+ $temp
-            
             $response = Invoke-WebRequest -Uri $uri_reset_bios_default -Headers $JsonHeader -Method Post -ContentType 'application/json'            
 
             Write-Host
@@ -156,9 +149,6 @@ function reset_bios_default{
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

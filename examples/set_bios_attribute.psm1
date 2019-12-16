@@ -90,8 +90,8 @@ function set_bios_attribute
     
     try
     {
-        $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
+
         # create session
         $session = create_session -ip $ip -username $username -password $password
         $session_key = $session.'X-Auth-Token'
@@ -102,22 +102,18 @@ function set_bios_attribute
         }
         
         # get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
-        
         # loop all System resource instance in $system_url_collection
         foreach ($system_url_string in $system_url_collection)
         {
-            
             # get Bios from the System resource instance
             $uri_address_system = "https://$ip"+$system_url_string
-            
+
             $response = Invoke-WebRequest -Uri $uri_address_system -Headers $JsonHeader -Method Get -UseBasicParsing
-            
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
 
             $temp = [string]$hash_table.Bios
             $uri_address_Bios = "https://$ip"+($temp.Split("=")[1].Replace("}",""))
@@ -128,7 +124,7 @@ function set_bios_attribute
 
             $converted_object = $response.Content | ConvertFrom-Json
             $hash_table = @{}
-            $converted_object.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+            $converted_object.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
                    
             $temp = $hash_table.'@Redfish.Settings'."SettingsObject".'@odata.id'
             $uri_address_BiosPending = "https://$ip"+$temp
@@ -178,9 +174,6 @@ function set_bios_attribute
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

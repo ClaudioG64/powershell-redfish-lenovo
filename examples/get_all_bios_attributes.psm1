@@ -43,10 +43,9 @@ function get_all_bios_attributes
    #>
    
    param(
-        [System.String]
-        [ValidateSet("current","pending")]
         [Parameter(Mandatory=$False)]
-        $bios_get = "current",
+        [ValidateSet("current","pending")]
+        [String] $bios_get = "current",
         [Parameter(Mandatory=$False)]
         [string]$ip="",
         [Parameter(Mandatory=$False)]
@@ -58,11 +57,10 @@ function get_all_bios_attributes
         [Parameter(Mandatory=$False)]
         [string]$config_file="config.ini"
         )
-        
 
     # Get configuration info from config file
     $ht_config_ini_info = read_config -config_file $config_file
-    
+
     # If the parameter is not specified via command line, use the setting from configuration file
     if ($ip -eq "")
     { 
@@ -83,8 +81,7 @@ function get_all_bios_attributes
 
     try
     {
-       $session_key = ""
-        $session_location = ""
+        $session_key = $session_location = ''
 
         # Create session
         $session = create_session -ip $ip -username $username -password $password
@@ -92,15 +89,10 @@ function get_all_bios_attributes
         $session_location = $session.Location
 
         # Build headers with sesison key for authentication
-        $JsonHeader = @{ "X-Auth-Token" = $session_key
-        }
-        
-        # Get the system url collection
-        $system_url_collection = @()
-        $system_url_collection = get_system_urls -bmcip $ip -session $session -system_id $system_id
+        $JsonHeader = @{ "X-Auth-Token" = $session_key}
 
-        # List of bios attribute info
-        $list_attribute = @()
+        # Get the system url collection
+        $system_url_collection = @(get_system_urls -bmcip $ip -session $session -system_id $system_id)
 
         # Loop all System resource instance in $system_url_collection
         foreach($system_url_string in $system_url_collection)
@@ -114,7 +106,7 @@ function get_all_bios_attributes
             $bios_url ="https://$ip" + $converted_object.Bios."@odata.id"
             $response = Invoke-WebRequest -Uri $bios_url -Headers $JsonHeader -Method Get -UseBasicParsing
             $converted_object = $response.Content | ConvertFrom-Json
-            
+
             # Get currnt info 
             if($bios_get -eq "current")
             {
@@ -122,14 +114,14 @@ function get_all_bios_attributes
                 $converted_object.Attributes
                 Write-Host " "
             }
-            
+
              # Get pending info
             if($bios_get -eq "pending")
             {
                 $pending_url ="https://$ip" + $converted_object."@Redfish.Settings".SettingsObject."@odata.id"
                 $response = Invoke-WebRequest -Uri $bios_url -Headers $JsonHeader -Method Get -UseBasicParsing
                 $converted_object = $response.Content | ConvertFrom-Json
-                
+
                 # Output result
                 $converted_object.Attributes
             }
@@ -168,9 +160,6 @@ function get_all_bios_attributes
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

@@ -160,9 +160,6 @@ function restart_bmc
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if (-not [string]::IsNullOrWhiteSpace($session_key))
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

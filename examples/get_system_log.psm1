@@ -78,12 +78,12 @@ function get_system_log
         $session_key = $session.'X-Auth-Token'
         $session_location = $session.Location
         $JsonHeader = @{ "X-Auth-Token" = $session_key}
-        
+
         # Get the manager url collection
         $base_url = "https://$ip/redfish/v1/"
         $response = Invoke-WebRequest -Uri $base_url -Headers $JsonHeader -Method Get -UseBasicParsing
         $converted_object = $response.Content | ConvertFrom-Json
-        
+
         $managers_url = $converted_object.Managers."@odata.id"
         $managers_url_string = "https://$ip" + $managers_url
         $manager_url_collection = get_managers_url -Uri $managers_url_string -Headers $JsonHeader
@@ -131,7 +131,9 @@ function get_system_log
                 # Converting PS Custom Object to hashtable, print logs to the screen
                 $converted_object = $sub_response.Content | ConvertFrom-Json
                 $hash_table2 = @{}
+                $hash_table2["BmcIp"] = $Ip
                 $converted_object.psobject.properties | ForEach-Object { $hash_table2[$_.Name] = $_.Value }
+
                 # Output result
                 $hash_table2.Members
             }
@@ -165,9 +167,6 @@ function get_system_log
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if ($session_key -ne "")
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }

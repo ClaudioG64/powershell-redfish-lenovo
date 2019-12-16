@@ -113,7 +113,7 @@ function get_fan_inventory
 
             $links_info = $converted_object.Links
             $ht_links = @{}
-            $links_info.psobject.properties | Foreach { $ht_links[$_.Name] = $_.Value }
+            $links_info.psobject.properties | ForEach-Object { $ht_links[$_.Name] = $_.Value }
             if($ht_links.Keys -notcontains "ComputerSystems")
             {
                 continue
@@ -129,15 +129,15 @@ function get_fan_inventory
             foreach($fans_info in $list_fans_info)
             {
                 $hash_table = @{}
-                $fans_info.psobject.properties | Foreach { $hash_table[$_.Name] = $_.Value }
+                $fans_info.psobject.properties | ForEach-Object { $hash_table[$_.Name] = $_.Value }
                 $ht_fans_info = @{}
+                $ht_fans_info["BmcIp"] = $Ip
                 foreach($key in $hash_table.Keys)
                 {
-                    if($key -eq "RelatedItem" -or $key -eq "@odata.type" -or $key -eq "@odata.id" -or $key -eq "Oem")
+                    if($key -notin "RelatedItem","@odata.type","@odata.id","Oem")
                     {
-                        continue
+                        $ht_fans_info[$key] = $hash_table[$key]
                     }
-                    $ht_fans_info[$key] = $hash_table[$key]
                 }
                 # Output result
                 ConvertOutputHashTableToObject $ht_fans_info
@@ -177,9 +177,6 @@ function get_fan_inventory
     # Delete existing session whether script exit successfully or not
     finally
     {
-        if (-not [string]::IsNullOrWhiteSpace($session_key))
-        {
-            delete_session -ip $ip -session $session
-        }
+        delete_session -ip $ip -session $session
     }
 }
